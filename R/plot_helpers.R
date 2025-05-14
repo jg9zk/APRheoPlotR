@@ -12,6 +12,10 @@ plot_initialize <- function(data,remove,xaxis_column_name,yaxis_column_name,sele
     data$condition <- factor(data$condition, levels=unique(data$condition))
   }
 
+  if (is.null(levels(data[,color_variable]))){
+    data[,color_variable] <- factor(data[,color_variable], levels=unique(data[,color_variable]))
+  }
+
   data$x_variable <- data[,xaxis_column_name]
 
   if(selected_measurement == ''){
@@ -37,6 +41,21 @@ plot_initialize <- function(data,remove,xaxis_column_name,yaxis_column_name,sele
   orig <- filtered_df
 
   if(plot_mean==TRUE){
+    n_colors_per_condition <- filtered_df %>%
+                              select(condition,color_var) %>%
+                              distinct() %>%
+                              group_by(condition) %>%
+                              distinct(color_var) %>%
+                              count(condition)%>%
+                              ungroup() %>%
+                              select(n)
+
+    if(sum(n_colors_per_condition>1)>0){
+      stop('The color variable indicates that there are multiple subgroups within each condition.
+           This will cause incorrect averaging and plotting of data. Make sure your condition variable
+           adequately describes the grouping of data.')
+    }
+
     filtered_df$Timepoint <- unname(unlist(lapply(sapply(unique(filtered_df$sample), function(x) sum(filtered_df$sample==x)), function(y) 1:y)))
 
     for (i in 1:length(yaxis_column_name)){
@@ -103,7 +122,8 @@ add_facets <- function(facet_col,facet_row,p){
 add_sd <- function(p,yaxis_column_name,yaxis_lower,yaxis_upper,color_variable){
   p + geom_ribbon(aes(y = .data[[yaxis_column_name]],
                       ymin = .data[[yaxis_lower]], ymax = .data[[yaxis_upper]],
-                      fill = .data[[color_variable]]), alpha = .2, color=NA)
+                      fill = color_var),#.data[[color_variable]]),
+                      alpha = .2, color=NA)
 }
 
 set_scales <- function(x_scale,xlim,y_scale,ylim,p){

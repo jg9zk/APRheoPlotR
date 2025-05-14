@@ -9,6 +9,10 @@ plot_general <- function(data, selected_measurement='', remove_samples='', plot_
                              x_label = '', y_label = '', x_scale = 'linear', y_scale = 'log10',
                              highlight_intervals = list()){
 
+  if(is.null(data$condition)){
+    stop("Input dataframe must have a column named 'condition'")
+  }
+
   dfs <- plot_initialize(data,remove_samples,xaxis_column_name,yaxis_column_name,selected_measurement,
                                  color_variable,facet_row,facet_col,plot_mean)
 
@@ -237,7 +241,7 @@ plot_plateau <- function(data, selected_measurement='', remove_samples='', last_
 
   p <- agg_df2 %>%
     ggplot(aes(x = .data[[xaxis_column_name]], y = y), color='black')+
-    geom_jitter(data=agg_df, width=.1,
+    geom_jitter(data=agg_df, width=.1, height=0,
                 aes(x = .data[[xaxis_column_name]], y = y, color=color), size=dot_size)+
     geom_errorbar(data=agg_df2, aes(ymin = y_lower, ymax = y_upper), color='black', width = 0.2, show.legend = FALSE)+
     geom_point(size = dot_size*1.25, show.legend = FALSE)+
@@ -440,5 +444,228 @@ plot_recovery <- function(data, selected_measurement='', remove_samples='', plot
   }else {print("Can't plot requested y scale")}
 
   p
+
+}
+
+#' @export
+plot_yield_strain <- function(data, selected_measurement='', remove_samples='', plot_mean = FALSE, plot_sd = FALSE,
+                              color_variable = 'condition', alpha_variable = '', legend_title = '',
+                              facet_row = '', facet_col = '', cmap = '', ylim = c(-1,NA), xlim = c(-1,NA),
+                              x_label = '', y_label = '', x_scale = 'linear', y_scale = 'log10',
+                              lvers = list(), flows = list()){
+
+  x_col = colnames(data)[sapply(colnames(data), function(x) grepl('Shear_Strain', x, fixed = TRUE))]
+  y_col = c(colnames(data)[sapply(colnames(data), function(x) grepl('Storage_Modulus', x, fixed = TRUE))],
+            colnames(data)[sapply(colnames(data), function(x) grepl('Loss_Modulus', x, fixed = TRUE))])
+
+  out <- plot_strain_sweep(data, selected_measurement, remove_samples, plot_mean, plot_sd,
+                           color_variable, alpha_variable, legend_title,
+                           facet_row, facet_col, cmap, ylim, xlim,
+                           x_label, y_label, x_scale, y_scale,
+                           highlight_intervals = list())
+
+  if (length(lvers)!=length(levels(out$filtered_df$condition))){
+    stop('Specified LVERs are not consistent with number of conditions')
+  }
+
+  if (length(flows)!=length(levels(out$filtered_df$condition))){
+    stop('Specified flow regions are not consistent with number of conditions')
+  }
+
+  yield_df <- data.frame(sample=character(), r=character(), yield_point=numeric(), condition=character(),
+                         m1=numeric(),b1=numeric(),m2=numeric(),b2=numeric())
+
+  meta2 <- out$filtered_df %>%
+    select(sample,condition) %>%
+    distinct() %>%
+    group_by(condition) %>%
+    mutate(rep = as.character(row_number())) %>%
+    ungroup()
+
+  out$filtered_df$rep <- meta2$rep[match(out$filtered_df$sample,meta2$sample)]
+
+  for (j in 1:length(levels(out$filtered_df$condition))){
+    cs <- levels(out$filtered_df$condition)[j]
+
+    for (s in unique(out$filtered_df$sample[out$filtered_df$condition==cs])){
+
+      lver <- out$filtered_df %>%
+        filter(sample == s) %>%
+        filter(.data[[x_col]] > lvers[[j]][1]) %>%
+        filter(.data[[x_col]] < lvers[[j]][2]) %>%
+        select(.data[[y_col[1]]],.data[[x_col]]) %>%
+        mutate(y = log10(.data[[y_col[1]]]), x = log10(.data[[x_col]]))
+
+      flow <- out$filtered_df %>%
+        filter(sample == s) %>%
+        filter(.data[[x_col]] > flows[[j]][1]) %>%
+        filter(.data[[x_col]] < flows[[j]][2]) %>%
+        select(.data[[y_col[1]]],.data[[x_col]]) %>%
+        mutate(y = log10(.data[[y_col[1]]]), x = log10(.data[[x_col]]))
+
+      #take mean G' over LVER as y-intercept; slope=0
+      #lver_reg <- lm('y~x',data = lver)
+      b1 = mean(lver$y)#unname(coef(lver_reg)[1])
+      m1 = 0
+
+      #Perform linear regression over flow region
+      flow_reg <- lm('y~x',data = flow)
+      b2 = unname(coef(flow_reg)[1])
+      m2 = unname(coef(flow_reg)[2])
+
+
+      r <- out$filtered_df$rep[out$filtered_df$sample==s][1]
+      yield_df <- rbind(yield_df, data.frame(sample=s, rep=as.character(r),
+                                             yield_point=10^((b1-b2)/m2), condition=cs,
+                                             m1 = m1, b1 = b1, m2 = m2, b2 = b2))
+    }
+  }
+
+  p2 <- ggplot(out$filtered_df,aes(x=.data[[x_col]], y=.data[[y_col[1]]], color=rep))+
+          geom_point()+
+          scale_y_log10()+
+          scale_x_log10()+
+          facet_wrap(~condition)+
+          theme_classic()+
+          geom_abline(data=yield_df, aes(intercept = b1, slope = m1, color=rep))+
+          geom_abline(data=yield_df, aes(intercept = b2, slope = m2, color=rep))
+
+  agg_df <- yield_df %>%
+    group_by(condition) %>%
+    summarize(y_sd = sd(yield_point),
+              y = mean(yield_point))
+
+  agg_df$y_upper <- agg_df$y + agg_df$y_sd
+  agg_df$y_lower <- agg_df$y - agg_df$y_sd
+
+  p <- agg_df %>%
+    ggplot(aes(x = condition, y = y), color='black')+
+    geom_point(size = 1, show.legend = FALSE)+
+    geom_errorbar(aes(ymin = y_lower, ymax = y_upper), color='black', width = 0.2, show.legend = FALSE)+
+    geom_jitter(data=yield_df, width=.1, height=0,
+                aes(x = condition, y = yield_point, color=condition))+
+    ylab(y_label)+
+    xlab(x_label)+
+    theme_classic()+
+    theme(strip.background = element_blank(),
+          strip.text.x = element_blank(),
+          axis.text = element_text(color="black"),
+          axis.ticks = element_line(color = "black"))+
+    scale_color_manual(values = colorRampPalette(cmap)(length(unique(agg_df$condition))))
+
+
+  return(list('g' = p, 'g2' = p2, 'filtered_df' = out$filtered_df))
+
+}
+
+
+#' @export
+plot_yield_stress <- function(data, selected_measurement='', remove_samples='', plot_mean = FALSE, plot_sd = FALSE,
+                              color_variable = 'condition', alpha_variable = '', legend_title = '',
+                              facet_row = '', facet_col = '', cmap = '', ylim = c(-1,NA), xlim = c(-1,NA),
+                              x_label = '', y_label = '', x_scale = 'linear', y_scale = 'log10',
+                              lvers = list(), flows = list()){
+
+  x_col = colnames(data)[sapply(colnames(data), function(x) grepl('Shear_Stress', x, fixed = TRUE))]
+  y_col = c(colnames(data)[sapply(colnames(data), function(x) grepl('Storage_Modulus', x, fixed = TRUE))],
+            colnames(data)[sapply(colnames(data), function(x) grepl('Loss_Modulus', x, fixed = TRUE))])
+
+  out <- plot_strain_sweep(data, selected_measurement, remove_samples, plot_mean, plot_sd,
+                           color_variable, alpha_variable, legend_title,
+                           facet_row, facet_col, cmap, ylim, xlim,
+                           x_label, y_label, x_scale, y_scale,
+                           highlight_intervals = list())
+
+  if (length(lvers)!=length(levels(out$filtered_df$condition))){
+    stop('Specified LVERs are not consistent with number of conditions')
+  }
+
+  if (length(flows)!=length(levels(out$filtered_df$condition))){
+    stop('Specified flow regions are not consistent with number of conditions')
+  }
+
+  yield_df <- data.frame(sample=character(), r=character(), yield_point=numeric(), condition=character(),
+                         m1=numeric(),b1=numeric(),m2=numeric(),b2=numeric())
+
+  meta2 <- out$filtered_df %>%
+    select(sample,condition) %>%
+    distinct() %>%
+    group_by(condition) %>%
+    mutate(rep = as.character(row_number())) %>%
+    ungroup()
+
+  out$filtered_df$rep <- meta2$rep[match(out$filtered_df$sample,meta2$sample)]
+
+  for (j in 1:length(levels(out$filtered_df$condition))){
+    cs <- levels(out$filtered_df$condition)[j]
+
+    for (s in unique(out$filtered_df$sample[out$filtered_df$condition==cs])){
+
+      lver <- out$filtered_df %>%
+        filter(sample == s) %>%
+        filter(.data[[x_col]] > lvers[[j]][1]) %>%
+        filter(.data[[x_col]] < lvers[[j]][2]) %>%
+        select(.data[[y_col[1]]],.data[[x_col]]) %>%
+        mutate(y = log10(.data[[y_col[1]]]), x = log10(.data[[x_col]]))
+
+      flow <- out$filtered_df %>%
+        filter(sample == s) %>%
+        filter(.data[[x_col]] > flows[[j]][1]) %>%
+        filter(.data[[x_col]] < flows[[j]][2]) %>%
+        select(.data[[y_col[1]]],.data[[x_col]]) %>%
+        mutate(y = log10(.data[[y_col[1]]]), x = log10(.data[[x_col]]))
+
+      #take mean G' over LVER as y-intercept; slope=0
+      #lver_reg <- lm('y~x',data = lver)
+      b1 = mean(lver$y)#unname(coef(lver_reg)[1])
+      m1 = 0
+
+      #Perform linear regression over flow region
+      flow_reg <- lm('y~x',data = flow)
+      b2 = unname(coef(flow_reg)[1])
+      m2 = unname(coef(flow_reg)[2])
+
+
+      r <- out$filtered_df$rep[out$filtered_df$sample==s][1]
+      yield_df <- rbind(yield_df, data.frame(sample=s, rep=as.character(r),
+                                             yield_point=10^((b1-b2)/m2), condition=cs,
+                                             m1 = m1, b1 = b1, m2 = m2, b2 = b2))
+    }
+  }
+
+  p2 <- ggplot(out$filtered_df,aes(x=.data[[x_col]], y=.data[[y_col[1]]], color=rep))+
+    geom_point()+
+    scale_y_log10()+
+    scale_x_log10()+
+    facet_wrap(~condition)+
+    theme_classic()+
+    geom_abline(data=yield_df, aes(intercept = b1, slope = m1, color=rep))+
+    geom_abline(data=yield_df, aes(intercept = b2, slope = m2, color=rep))
+
+  agg_df <- yield_df %>%
+    group_by(condition) %>%
+    summarize(y_sd = sd(yield_point),
+              y = mean(yield_point))
+
+  agg_df$y_upper <- agg_df$y + agg_df$y_sd
+  agg_df$y_lower <- agg_df$y - agg_df$y_sd
+
+  p <- agg_df %>%
+    ggplot(aes(x = condition, y = y), color='black')+
+    geom_point(size = 1, show.legend = FALSE)+
+    geom_errorbar(aes(ymin = y_lower, ymax = y_upper), color='black', width = 0.2, show.legend = FALSE)+
+    geom_jitter(data=yield_df, width=.1, height=0,
+                aes(x = condition, y = yield_point, color=condition))+
+    ylab(y_label)+
+    xlab(x_label)+
+    theme_classic()+
+    theme(strip.background = element_blank(),
+          strip.text.x = element_blank(),
+          axis.text = element_text(color="black"),
+          axis.ticks = element_line(color = "black"))+
+    scale_color_manual(values = colorRampPalette(cmap)(length(unique(agg_df$condition))))
+
+
+  return(list('g' = p, 'g2' = p2, 'filtered_df' = out$filtered_df))
 
 }

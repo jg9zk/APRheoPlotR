@@ -82,16 +82,29 @@ dat <- readData(paste0(path,f))
 
 df <- dat@long
 meta <- dat@metadata
+meta$condition <- c('a','b')
+meta$condition2 <- 'test'
+#meta$condition <- paste0(meta$condition2,'_',meta$condition3)
 
 df <- cbind(df, meta[match(df$sample,meta$sample),colnames(meta) != 'sample'])
 
-df$condition <- 'test'
-
 source('R/plot_helpers.R');source('R/plotting.R')
 
-plot_strain_sweep(df, selected_measurement = 'Amplitude sweep',
-                 x_scale = 'log10', plot_mean=TRUE, plot_sd = TRUE,
-                 cmap = col_pal[c(1,3)], facet_col = 'condition', y_scale='log10')
+out <- plot_strain_sweep(df, selected_measurement = 'Amplitude sweep', color_variable = 'condition2',
+                 x_scale = 'log10', plot_mean=FALSE, plot_sd = TRUE,
+                 cmap = col_pal[c(1,3)], facet_col = 'condition2', y_scale='log10')
+
+out <- plot_yield_strain(df, selected_measurement = 'Amplitude sweep',
+                         x_scale = 'log10', plot_mean=TRUE, plot_sd = TRUE, color_variable = 'condition',
+                         cmap = col_pal[c(1,3)], facet_col = 'condition2', y_scale='log10',
+                         lvers = list(c(.01,.1),c(.01,.1)),
+                         flows = list(c(.5,2),c(.5,2)))
+
+out <- plot_yield_stress(df, selected_measurement = 'Amplitude sweep',
+                         x_scale = 'log10', plot_mean=TRUE, plot_sd = TRUE, color_variable = 'condition',
+                         cmap = col_pal[c(1,3)], facet_col = 'condition2', y_scale='log10',
+                         lvers = list(c(1,10),c(2,8)),
+                         flows = list(c(30,100),c(20,100)))
 
 plot_stress_sweep(df, selected_measurement = 'Amplitude sweep',ylim=c(1,250),
                   x_scale = 'log10', plot_mean=TRUE, plot_sd = TRUE,
@@ -100,7 +113,6 @@ plot_stress_sweep(df, selected_measurement = 'Amplitude sweep',ylim=c(1,250),
 plot_tan_delta(df, selected_measurement = 'Amplitude sweep', xaxis_column_name = 'Shear_Strain_1',
                   x_scale = 'log10', plot_mean=TRUE, plot_sd = FALSE, ylim=c(.1,10),
                   cmap = col_pal[c(1,3)], facet_col = 'condition', y_scale='log10')
-
 
 
 ###############################

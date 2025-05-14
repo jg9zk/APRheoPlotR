@@ -109,7 +109,6 @@ makeLong <- function(rheo){
   var_names <- gsub('_1/s','_Hz',var_names)
   var_names <- gsub('%','percent',var_names)
 
-  print(var_names)
   colnames(long) <- var_names
 
   sample_map <- data.frame(id = unique(long$sample),

@@ -1,6 +1,6 @@
 ---
 title: "Getting Started"
-author: "James Gentry"
+author: "James L. Gentry"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -15,13 +15,18 @@ knitr::opts_chunk$set(
   comment = "#>"
 )
 ```
+## Package Description
 
 This package takes the CSV files output by Anton Paar's RheoCompass software and processes them into a table format usable by the popular plotting package ggplot2. It includes plotting functions for common experiments, as well as a generalized plotting function for more niche experiments.
+
+**General plotting:** plot_general(), plot_plateau()\
+**Oscillatory:** plot_time_sweep(), plot_tan_delta(), plot_strain_sweep(), plot_stress_sweep(), plot_freq_sweep(), plot_yield_strain(), plot_yield_stress()\
+**Rotational:** plot_stress_relax(), plot_stress_vs_rate(), plot_visc_vs_rate()
+
 
 ## Extracting data from a CSV file 
 
 The CSV file must be saved as a UTF-8 encoded CSV, which can be done using Microsoft Excel's Save As functionality.
-
 
 
 ```{r, message=FALSE, warning=FALSE}
@@ -85,48 +90,208 @@ knitr::kable(head(df,3))
 
 It contains many different variables that the rheometer records (time, moduli, temp, etc) as well as the meta data we added. It also has the columns 'measurement' and 'interval'. In each test run on the rheometer, there can be multiple measurements (time sweeps, stress relaxation, etc), and each measurement can be broken down into intervals according to when certain experimental parameters change. For plotting, you must indicate which measurement you want to view. All intervals within a measurement are plotted.
 
-## Plotting oscillatory data
+**If meta only contains the sample and condition columns, the corresponding condition column in df may need to be renamed to condition. See the section on amplitude sweeps.**
+
+## Plotting data
 
 This package includes functions that plot time sweeps, amplitude sweeps, and frequency sweeps. The function plot_general() gives more control to the user for more niche plotting needs.
 
 All plotting functions require you to have a column in df called 'condition'. This is the variable that denotes the different groups in an experiment. If there is only one group, you still need to create a condition column that contains the same label for all samples. This column is primarily required for correct averaging of samples within a group.
 
-### Time Sweep
-```{r, message=FALSE, warning=FALSE}
-out <- plot_time_sweep(df, 
-                       selected_measurement = 'UV Cure', #specify which measurement you want plotted
-                       facet_col='condition', #if you want multiple subplots, specify which variable in df you want to determine that
-                       color_variable = 'condition', #if you want to color according to a variable in df, specify it here
-                       plot_mean=TRUE,
-                       ylim = c(1,NA), y_scale='log10',
-                       highlight_intervals = list(c(10,10+300)))
+### Time sweep and stress relaxation
+
+This data set contains UV curing time sweeps and stress relaxation tests. 
+
+In order to get a default plot for most of the plotting functions, you must provide both the data and specific measurement to be plotted. The functions return a plot and a data frame containing the subset data used for the plot. If multiple y variables are being plotted on one plot (for instance G' and G''), the different variables are distinguished by varying point transparency. 
+
+You can use built-in R functions like pdf() or tiff() to save the plots to a file.
+
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+out <- plot_time_sweep(df, selected_measurement = 'UV Cure')
 out$g
 ```
 
 ```{r, message=FALSE, warning=FALSE}
+knitr::kable(head(out$filtered_df,5))
+```
+
+There are many options to customize the plot. You can either use the default plot and add to it like any other ggplot object, or you can use some built-in options.
+
+The following splits up the plot into 4 panels, plots the averages instead of all samples, and changes the y-axis limits to get rid of unnecessary white space. It also adds a red highlight that denotes when the UV light was turned on. The points are all the same color as I specified V3 as the color variable; it is the same for all samples. 
+
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+out <- plot_time_sweep(df, 
+                       selected_measurement = 'UV Cure', #specify which measurement you want plotted
+                       facet_col='condition', #if you want multiple subplots, specify which variable in df you want to determine that
+                       color_variable = 'V3', #if you want to color according to a variable in df, specify it here
+                       plot_mean=TRUE, # plot averages with samples grouped according to the condition column
+                       ylim = c(1,NA), #
+                       y_scale='log10',
+                       highlight_intervals = list(c(10,10+300)))
+out$g
+```
+
+To change the color, you can specify your own color palette. 
+
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+col_pal <- c('#960162','#ED5315','#249FCA','#1D3367')
+  
+out <- plot_time_sweep(df, 
+                       selected_measurement = 'UV Cure', #specify which measurement you want plotted
+                       facet_col='condition',
+                       color_variable = 'condition',
+                       cmap = col_pal,
+                       plot_mean=TRUE,
+                       ylim = c(1,NA),
+                       y_scale='log10',
+                       highlight_intervals = list(c(10,10+300)))
+out$g
+```
+
+Or you can specify the color palette afterwards using ggplot2 functions. Also, notice that the color is ordered according to how we specified the factor levels earlier when making our meta data.
+
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
 out$g + scale_color_brewer(palette = "PuOr") #change color palette
 ```
 
+If you want to plot the final values of a measurement, you can use plot_plateau(). You can access the plotted data under out$agg_data.
+
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+out <- plot_plateau(df, 
+                    last_n_points = 5, #takes average of last n points of each test
+                    selected_measurement = 'UV Cure',
+                    xaxis_column_name = 'condition',
+                    yaxis_column_name = 'Storage_Modulus_Pa',#specify which value you want to plot
+                    color_variable = 'condition',
+                    cmap = col_pal,
+                    dot_size = 2,
+                    y_scale = 'linear', ylim = c(0,NA),
+                    x_label = '', xlim = c(1,NA))
+out$g
+```
+```{r, message=FALSE, warning=FALSE}
+knitr::kable(out$agg_data)
+```
 
 
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+out <- plot_plateau(df, 
+                    last_n_points = 5, #takes average of last n points of each test
+                    selected_measurement = 'UV Cure',
+                    xaxis_column_name = 'condition',
+                    yaxis_column_name = 'Loss_Factor_1',#specify which value you want to plot
+                    color_variable = 'condition',
+                    cmap = col_pal,
+                    dot_size = 2,
+                    y_scale = 'linear', ylim = c(0,NA),
+                    x_label = '', xlim = c(1,NA))
+out$g
+```
+
+Stress relaxation tests were performed on these same samples after UV curing. To plot those data, we can use plot_stress_relaxation().
+
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+out <- plot_stress_relax(df, 
+                        selected_measurement = 'Stress Relaxation',
+                        normalize=TRUE, #TRUE sets initial stress to 1
+                        plot_mean=TRUE, 
+                        plot_sd = TRUE, #whether or not to include standard deviation; default FALSE
+                        color_variable = 'condition',
+                        cmap = col_pal,
+                        xlim = c(-1,30), x_scale = 'linear',
+                        ylim = c(0,NA), y_scale='linear')
+out$g
+```
+
+Next, I want to plot the final normalized stress relaxation extent for each sample. Unfortunately, our original df does not contain that information. However, the data frame that is output as part of plot_stress_relaxation() does contain normalized shear stress data. We can use that data frame as input for plot_plateau().
 
 
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+out2 <- plot_plateau(out$filtered_df, #use the output dataframe from the last plot as input
+                    last_n_points = 1, #takes the last point of each test
+                    selected_measurement = 'Stress Relaxation',
+                    xaxis_column_name = 'condition',
+                    yaxis_column_name = 'Norm_Shear_Stress',#New column that was calculated for the last plot
+                    color_variable = 'condition',
+                    cmap = col_pal,
+                    dot_size = 2,
+                    y_scale = 'linear', ylim = c(0,NA),
+                    x_label = '')
 
+out2$g
+```
 
+### Amplitude sweep and yield points
 
+Read in another file with data for amplitude sweeps. Yield strain and yield stress can be calculated as well using the tangent-based approach.
 
+```{r, message=FALSE, warning=FALSE}
+f <- 'gelma_fibers.csv'# input csv file
 
+dat <- readData(f)
+df <- dat@long 
+meta <- dat@metadata
+meta$condition <- 'test'
+df <- cbind(df, meta[match(df$sample,meta$sample),colnames(meta) != 'sample'])
+colnames(df)[15] <- 'condition' # renaming the last column to condition
 
+```
 
+The arguments for this function are similar to before. 
 
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+out <- plot_strain_sweep(df, 
+                         selected_measurement = 'Amplitude sweep',
+                         x_scale = 'log10', 
+                         plot_mean=TRUE, plot_sd = TRUE,
+                         cmap = col_pal[c(1,3)], 
+                         y_scale='log10')
+out$g
+```
 
+To calculate yield strain, use the plot_yield_strain() function. The user must provide the strain values that denote the LVER and the region of flow. Looking at the plot above, the LVER is approximately from 0.01 to 0.1, and the flow region is approximately from .3 to 2. A line is fit through the LVER and another line is fit through the flow region. The intersection point of the two lines is the yield point.
 
+If there are multiple conditions instead of just one like in this example, you need to specify the LVER and flow regions for each condition separately. Simply add another vector to the lvers and flows lists (example for 3 conditions: lvers = list(c(.01,.1),c(.1,1),c(.05,10))). The ordering follows the factor level order of the condition column in df. 
 
+```{r, message=FALSE, warning=FALSE, fig.dim=c(7,3)}
+out <- plot_yield_strain(df, 
+                         selected_measurement = 'Amplitude sweep',
+                         x_scale = 'log10', plot_mean=TRUE, plot_sd = TRUE, 
+                         color_variable = 'condition',
+                         cmap = col_pal[c(1,3)], 
+                         y_scale='log10', y_label = 'Yield Strain',
+                         lvers = list(c(.01,.1)),
+                         flows = list(c(.3,2)))
+out$g
+```
 
+The above plots the yield points according to group. Yield strain is approximately 0.16. Like with plot_plateau(), values for each sample can be accessed with out$filtered_df.
 
+To check that yield point was accurately estimated, this function returns a second plot. Points and lines are colored according to each sample. The lines seem to reflect the intended tangent-based approach. 
 
+```{r, message=FALSE, warning=FALSE, fig.dim=c(4,3)}
+out$g2
+```
 
+## Plotting shear sweeps
+As previously shown with the stress relaxation tests, you can also plot rotational tests. 
 
+```{r, message=FALSE, warning=FALSE}
+f <- 'gelma_fibers_diff_size_visc_v_shear2.csv'#save as utf-8 csv
+dat <- readData(f,meta_from_file_name = TRUE)
 
+df <- dat@long
+meta <- dat@metadata
+meta$condition <- meta$V2
+
+df <- cbind(df, meta[match(df$sample,meta$sample),colnames(meta) != 'sample'])
+```
+
+```{r, message=FALSE, warning=FALSE, fig.dim=c(4,3)}
+out <- plot_visc_vs_rate(df, selected_measurement = 'Measurement 1',
+                  x_scale = 'log10', plot_mean=TRUE, plot_sd = TRUE,
+                  cmap = col_pal[c(1,3)],  y_scale='log10')
+out$g+theme(axis.text.x = element_text(angle = 45,hjust=1))
+```
 
 

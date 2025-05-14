@@ -157,7 +157,7 @@ set_y_scale <- function(y_scale,ylim,p){
 }
 
 set_theme <- function(cmap,n_col,x_label,y_label,legend_title,p){
-  if (cmap==''){
+  if (length(cmap)==1){
       p + ylab(y_label)+
           xlab(x_label)+
           theme_classic()+

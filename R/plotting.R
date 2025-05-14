@@ -97,6 +97,10 @@ plot_time_sweep <- function(data, selected_measurement='', remove_samples='', pl
   y_col = c(colnames(data)[sapply(colnames(data), function(x) grepl('Storage_Modulus', x, fixed = TRUE))],
             colnames(data)[sapply(colnames(data), function(x) grepl('Loss_Modulus', x, fixed = TRUE))])
 
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
+
   if (x_label==''){
     x_label <- paste0(c('Time', get_units(x_col)), collapse = ' ')
   }
@@ -125,6 +129,10 @@ plot_strain_sweep <- function(data, selected_measurement='', remove_samples='', 
   y_col = c(colnames(data)[sapply(colnames(data), function(x) grepl('Storage_Modulus', x, fixed = TRUE))],
             colnames(data)[sapply(colnames(data), function(x) grepl('Loss_Modulus', x, fixed = TRUE))])
 
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
+
   if (x_label==''){
     x_label <- paste0(c('Strain', get_units(x_col)), collapse = ' ')
   }
@@ -151,6 +159,10 @@ plot_stress_sweep <- function(data, selected_measurement='', remove_samples='', 
   x_col = colnames(data)[sapply(colnames(data), function(x) grepl('Shear_Stress', x, fixed = TRUE))]
   y_col = c(colnames(data)[sapply(colnames(data), function(x) grepl('Storage_Modulus', x, fixed = TRUE))],
             colnames(data)[sapply(colnames(data), function(x) grepl('Loss_Modulus', x, fixed = TRUE))])
+
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
 
   if (x_label==''){
     x_label <- paste0(c('Stress', get_units(x_col)), collapse = ' ')
@@ -179,6 +191,10 @@ plot_freq_sweep <- function(data, selected_measurement='', remove_samples='', pl
   x_col = colnames(data)[sapply(colnames(data), function(x) grepl('Frequency', x, fixed = TRUE))]
   y_col = c(colnames(data)[sapply(colnames(data), function(x) grepl('Storage_Modulus', x, fixed = TRUE))],
             colnames(data)[sapply(colnames(data), function(x) grepl('Loss_Modulus', x, fixed = TRUE))])
+
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
 
   if (x_label==''){
     x_label <- paste0(c('Frequency', get_units(x_col)), collapse = ' ')
@@ -222,8 +238,7 @@ plot_plateau <- function(data, selected_measurement='', remove_samples='', last_
   agg_df <- filtered_df %>%
     group_by(sample,.data[[xaxis_column_name]]) %>%
     do(tail(.,n=last_n_points)) %>%
-    summarize(y_sd = sd(.data[[yaxis_column_name]]),
-              y = mean(.data[[yaxis_column_name]]),
+    summarize(y = mean(.data[[yaxis_column_name]]),
               #x = unique(.data[[xaxis_column_name]]),
               Condition = unique(Condition), Time_s = mean(Time_s), color = unique(.data[[color_variable]]),
               facet_row_var = facet_row_var[1], facet_col_var = facet_col_var[1])
@@ -258,7 +273,7 @@ plot_plateau <- function(data, selected_measurement='', remove_samples='', last_
   if(facet_col !='' | facet_row != ''){
     p <- add_facets(facet_col, facet_row, p)
   }
-  return(list('g' = p, agg_data = agg_df2))
+  return(list('g' = p, agg_data = agg_df))
 }
 
 #' @export
@@ -270,6 +285,10 @@ plot_visc_vs_rate <- function(data, selected_measurement='', remove_samples='', 
 
   x_col = colnames(data)[sapply(colnames(data), function(x) grepl('Shear_Rate', x, fixed = TRUE))]
   y_col = colnames(data)[sapply(colnames(data), function(x) grepl('\\bViscosity', x, fixed = FALSE))]
+
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
 
   if (x_label==''){
     x_label <- paste0(c('Shear Rate', get_units(x_col)), collapse = ' ')
@@ -299,6 +318,14 @@ plot_stress_vs_rate <- function(data, selected_measurement='', remove_samples=''
   x_col = colnames(data)[sapply(colnames(data), function(x) grepl('Shear_Rate', x, fixed = TRUE))]
   y_col = colnames(data)[sapply(colnames(data), function(x) grepl('Shear_Stress', x, fixed = TRUE))]
 
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
+
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
+
   if (x_label==''){
     x_label <- paste0(c('Shear Rate', get_units(x_col)), collapse = ' ')
   }
@@ -326,6 +353,10 @@ plot_stress_relax <- function(data, normalize = FALSE, selected_measurement='', 
 
   x_col = colnames(data)[sapply(colnames(data), function(x) grepl('\\bTime_', x, fixed = FALSE))]
   y_col = colnames(data)[sapply(colnames(data), function(x) grepl('Shear_Stress', x, fixed = TRUE))]
+
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
 
   if (x_label==''){
     x_label <- paste0(c('Time', get_units(x_col)), collapse = ' ')
@@ -458,6 +489,10 @@ plot_yield_strain <- function(data, selected_measurement='', remove_samples='', 
   y_col = c(colnames(data)[sapply(colnames(data), function(x) grepl('Storage_Modulus', x, fixed = TRUE))],
             colnames(data)[sapply(colnames(data), function(x) grepl('Loss_Modulus', x, fixed = TRUE))])
 
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
+
   out <- plot_strain_sweep(data, selected_measurement, remove_samples, plot_mean, plot_sd,
                            color_variable, alpha_variable, legend_title,
                            facet_row, facet_col, cmap, ylim, xlim,
@@ -554,7 +589,7 @@ plot_yield_strain <- function(data, selected_measurement='', remove_samples='', 
     scale_color_manual(values = colorRampPalette(cmap)(length(unique(agg_df$condition))))
 
 
-  return(list('g' = p, 'g2' = p2, 'filtered_df' = out$filtered_df))
+  return(list('g' = p, 'g2' = p2, 'filtered_df' = yield_df))
 
 }
 
@@ -569,6 +604,10 @@ plot_yield_stress <- function(data, selected_measurement='', remove_samples='', 
   x_col = colnames(data)[sapply(colnames(data), function(x) grepl('Shear_Stress', x, fixed = TRUE))]
   y_col = c(colnames(data)[sapply(colnames(data), function(x) grepl('Storage_Modulus', x, fixed = TRUE))],
             colnames(data)[sapply(colnames(data), function(x) grepl('Loss_Modulus', x, fixed = TRUE))])
+
+  if(length(x_col)==0 | length(y_col)==0){
+    stop('Axis variable is missing from input data frame.')
+  }
 
   out <- plot_strain_sweep(data, selected_measurement, remove_samples, plot_mean, plot_sd,
                            color_variable, alpha_variable, legend_title,
@@ -666,6 +705,6 @@ plot_yield_stress <- function(data, selected_measurement='', remove_samples='', 
     scale_color_manual(values = colorRampPalette(cmap)(length(unique(agg_df$condition))))
 
 
-  return(list('g' = p, 'g2' = p2, 'filtered_df' = out$filtered_df))
+  return(list('g' = p, 'g2' = p2, 'filtered_df' = yield_df))
 
 }

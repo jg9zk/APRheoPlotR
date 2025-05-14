@@ -147,7 +147,6 @@ g+theme(axis.text.x = element_text(angle = 45,hjust=1))
 ###############################
 #Fibers
 ###############################
-source('R/extract_data.R');source('R/plot_helpers.R');source('R/plotting.R')
 
 f <- 'gelma_fibers_diff_size_recovery_osc.csv'#save as utf-8 csv
 dat <- readData(paste0(path,f),meta_from_file_name = TRUE)
@@ -157,9 +156,6 @@ meta <- dat@metadata
 meta$condition <- meta$V1
 
 df <- cbind(df, meta[match(df$sample,meta$sample),colnames(meta) != 'sample'])
-
-
-source('R/plot_helpers.R');source('R/plotting.R')
 
 g <- plot_time_sweep(df, selected_measurement = 'Pre-UV recovery',facet_col = 'condition',
                        x_scale = 'linear', plot_mean=TRUE, plot_sd = FALSE,

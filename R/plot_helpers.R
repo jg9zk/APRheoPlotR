@@ -157,13 +157,22 @@ set_y_scale <- function(y_scale,ylim,p){
 }
 
 set_theme <- function(cmap,n_col,x_label,y_label,legend_title,p){
-  p + scale_color_manual(values = rev(colorRampPalette(rev(cmap))(n_col))) +
-    scale_fill_manual(values = rev(colorRampPalette(rev(cmap))(n_col)))+
-    ylab(y_label)+
-    xlab(x_label)+
-    theme_classic()+
-    theme(strip.background = element_blank(), axis.text.y = element_text(colour = "black"),
-          axis.text.x = element_text(colour = "black"))+
-    labs(color=legend_title,fill=legend_title)
+  if (cmap==''){
+      p + ylab(y_label)+
+          xlab(x_label)+
+          theme_classic()+
+          theme(strip.background = element_blank(), axis.text.y = element_text(colour = "black"),
+                axis.text.x = element_text(colour = "black"))+
+          labs(color=legend_title,fill=legend_title)
+  }else{
+      p + scale_color_manual(values = rev(colorRampPalette(rev(cmap))(n_col))) +
+          scale_fill_manual(values = rev(colorRampPalette(rev(cmap))(n_col)))+
+          ylab(y_label)+
+          xlab(x_label)+
+          theme_classic()+
+          theme(strip.background = element_blank(), axis.text.y = element_text(colour = "black"),
+                axis.text.x = element_text(colour = "black"))+
+          labs(color=legend_title,fill=legend_title)
+  }
 }
 

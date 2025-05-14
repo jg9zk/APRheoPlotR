@@ -1,0 +1,132 @@
+---
+title: "Getting Started"
+author: "James Gentry"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This package takes the CSV files output by Anton Paar's RheoCompass software and processes them into a table format usable by the popular plotting package ggplot2. It includes plotting functions for common experiments, as well as a generalized plotting function for more niche experiments.
+
+## Extracting data from a CSV file 
+
+The CSV file must be saved as a UTF-8 encoded CSV, which can be done using Microsoft Excel's Save As functionality.
+
+
+
+```{r, message=FALSE, warning=FALSE}
+library(APRheoPlotR)
+library(ggplot2)
+
+f <- 'norb_homopolymerization_same_formulations.csv'# input csv file
+
+dat <- readData(f); #returns a S4 object that contains original and processed versions of the CSV
+df <- dat@long #this saves the long table formatted data needed for plotting to the variable df
+meta <- dat@metadata # this saves the meta information of each test (e.g. which experimental group each test belongs to) to the variable meta
+
+knitr::kable(meta)
+
+```
+
+As seen above, meta only contains the name of each test. You will need to manually add relevant information to meta. This was a relatively simple experiment with only 4 groups, so we can add which group each test belongs to as another column 'condition'.
+
+```{r, message=FALSE, warning=FALSE}
+meta$condition <- rep(c('Nor40HA','Nor8HA','Nor18HA','Nor4PEG'),each=3)
+meta$condition <- factor(meta$condition, levels = c('Nor4PEG','Nor8HA','Nor18HA','Nor40HA')) #this tells R that this column contains a grouping variable that I want to have displayed in a specific order when plotting
+knitr::kable(meta)
+```
+
+Alternatively, if meta data is encoded in the test name itself, we can tell the readData function to extract it. Test names must be delimited by underscores '_'.  
+
+```{r, message=FALSE, warning=FALSE}
+dat <- readData(f, meta_from_file_name = TRUE);
+df <- dat@long
+meta <- dat@metadata
+
+knitr::kable(meta)
+
+```
+
+The test names were split up into columns with underscores as the delimiter. Notice that each test name followed a distinct naming convention. Polymer weight %, polymer type, LAP concentration all occupied the same slot in the name regardless of sample. If test names are not ordered similarly or contain different types of information, it'll probably be easier to hard code the meta data as shown previously. 
+
+```{r, message=FALSE, warning=FALSE}
+meta$condition <- meta$V2
+meta$condition[meta$condition=='4armPEG'] = 'Nor4PEG'#relabeling groups for arbitrary reasons
+meta$condition[meta$condition=='10kNorHA'] = 'Nor8HA'
+meta$condition[meta$condition=='40kNorHA'] = 'Nor18HA'
+meta$condition[meta$condition=='60kNorHA'] = 'Nor40HA'
+meta$condition <- factor(meta$condition, levels = c('Nor4PEG','Nor8HA','Nor18HA','Nor40HA'))
+
+```
+
+The column V2 was copied into the condition column of meta, as that column contained the grouping information. This ultimately gives us the same result as the hard coded version.  
+
+```{r, message=FALSE, warning=FALSE}
+df <- cbind(df, meta[match(df$sample,meta$sample), colnames(meta) != 'sample'])
+```
+
+Finally, the meta data containing sample-specific information needed for plotting is added to df. This matches the sample names in both meta and df together, and appends the other columns in meta to df. Now let's look at df to see what information it contains.
+
+
+```{r, message=FALSE, warning=FALSE}
+knitr::kable(head(df,3))
+```
+
+
+It contains many different variables that the rheometer records (time, moduli, temp, etc) as well as the meta data we added. It also has the columns 'measurement' and 'interval'. In each test run on the rheometer, there can be multiple measurements (time sweeps, stress relaxation, etc), and each measurement can be broken down into intervals according to when certain experimental parameters change. For plotting, you must indicate which measurement you want to view. All intervals within a measurement are plotted.
+
+## Plotting oscillatory data
+
+This package includes functions that plot time sweeps, amplitude sweeps, and frequency sweeps. The function plot_general() gives more control to the user for more niche plotting needs.
+
+All plotting functions require you to have a column in df called 'condition'. This is the variable that denotes the different groups in an experiment. If there is only one group, you still need to create a condition column that contains the same label for all samples. This column is primarily required for correct averaging of samples within a group.
+
+### Time Sweep
+```{r, message=FALSE, warning=FALSE}
+out <- plot_time_sweep(df, 
+                       selected_measurement = 'UV Cure', #specify which measurement you want plotted
+                       facet_col='condition', #if you want multiple subplots, specify which variable in df you want to determine that
+                       color_variable = 'condition', #if you want to color according to a variable in df, specify it here
+                       plot_mean=TRUE,
+                       ylim = c(1,NA), y_scale='log10',
+                       highlight_intervals = list(c(10,10+300)))
+out$g
+```
+
+```{r, message=FALSE, warning=FALSE}
+out$g + scale_color_brewer(palette = "PuOr") #change color palette
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
